@@ -3,7 +3,7 @@
 \usetheme{Madrid}
 
 \title[Smart Share]{Smart Share}
-\author[Blazanome]{Romain Benoit, Théo Choné, Ewan Chorynski, Florian Delhon, Théo Gaigé, Amar Hasan Tawfiq, Alix Peigue}
+\author[Blazanome]{Romain Benoît, Théo Choné, Ewan Chorynski, Florian Delhon, Théo Gaigé, Amar Hasan Tawfiq, Alix Peigue}
 \institute[INSA Lyon]{INSA Lyon}
 \date{2024}
 
@@ -16,7 +16,7 @@
 \usetikzlibrary{shapes.geometric}
 
 \lstset{%
-basicstyle=\ttfamily,
+basicstyle=\tiny\ttfamily,
 breaklines = true,
 language=C,
 numbers=left,
@@ -33,9 +33,256 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
 
 \begin{document}
 
+\frame{\titlepage}
+
 \begin{frame}
-    \frametitle{Test}
-    \framesubtitle{Testtest}
+	\frametitle{Test}
+	\framesubtitle{Testtest}
+
+\end{frame}
+
+\section{Première itération}
+\begin{frame}
+    \frametitle{Architecture globale}
+    \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{archi.png}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Objectifs}
+    \begin{block}{Existant}
+        \begin{itemize}
+            \item Google Docs: édition sur le navigateur, serveurs propriétaires de Google
+            \item LiveShare: restreint à VSCode
+            \item CodeTogether: payant, propriétaire
+        \end{itemize}
+    \end{block}
+    \begin{block}{Notre proposition}
+        Une solution open-source d'édition de fichiers simultanée fonctionnant sur plusieurs éditeurs.
+        \begin{itemize}
+            \item Un protocole de communication
+            \item Un client exécutable universel à tous les éditeurs de textheight
+            \item Une intégration simple dans les éditeurs/IDE
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \begin{block}{Temps réel}
+        \begin{itemize}
+            \item Latence faible
+            \item Edition simultanée des fichiers (nombreux enjeux abordés en détail dans les slides suivantes)
+        \end{itemize}
+    \end{block}
+    \begin{block}{Interopérabilité}
+        \begin{itemize}
+            \item Fonctionalités équivalentes sur plusieurs éditeurs
+            \item Ajout communautaire d'éditeurs
+            \item Facilité d'intégration
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Architecture globale}
+
+    \begin{block}{Avantages}
+        \begin{itemize}
+            \item Factoriser la complexité dans le client
+            \item Favoriser l'interopérabilité
+            \item Faciliter la communication avec le serevur
+       \end{itemize}
+    \end{block}
+
+    \begin{block}{Inconvénients}
+        \begin{itemize}
+            \item Deux protocoles à gérer
+            \item Deux points de synchronisation
+            \item Toujours un peu de logique à coder directement dans l'IDE
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Choix du langage}
+    \framesubtitle{Rust}
+
+    \begin{columns}
+        \begin{column}{0.7\textwidth}
+            \begin{itemize}
+                \item \textit{Fast, Reliable, Productive. Pick Three.}
+                \item \textit{Fearless parallelism}
+                \item Langage de programmation système
+                \item Adapté à la programmation parallèle sans risque
+                \item Grand entrain de la part du groupe pour apprendre ce nouveau langage
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.3\textwidth}
+            \includegraphics[width=\textwidth,height=0.2\textheight,keepaspectratio]{ferris.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{Transport de données}
+    \framesubtitle{Sérialisation}
+    \begin{block}{Sur la ligne}
+        \begin{itemize}
+            \item Messages sérialisés en JSON
+            \item Un message par ligne
+        \end{itemize}
+    \end{block}
+    \begin{exampleblock}{Exemple}
+        \begin{lstlisting}
+{"action":"update","changes":[{"offset":3413,"delete":0,"text":"i"}]}
+{"action":"update","changes":[{"offset":3414,"delete":2,"text":""}]}
+{"action":"update","changes":[{"offset":3436,"delete":0,"text":"lstlisting"}]}
+{"action":"ack"}
+        \end{lstlisting}
+    \end{exampleblock}
+    \begin{block}{Côté Rust}
+        \begin{itemize}
+            \item Structures fortement typés
+            \item Des Streams pour recevoir
+            \item Des Sinks pour envoyer Un message par ligne
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Solution naïve}
+
+    \begin{block}{Serveur}
+        \begin{itemize}
+            \item Transmet les changements reçus d'un client vers tous les autres
+            \item Ressemble à un simple chat
+        \end{itemize}
+    \end{block}
+    \begin{block}{Client}
+        \begin{itemize}
+            \item Transmet simplement les messages entre l'IDE et le serveur
+            \item Simple boîte au lettre
+        \end{itemize}
+    \end{block}
+    \begin{alertblock}{Ce n'est pas si simple !}
+        Gros problèmes lorsque plusieurs personnes écrivent en même temps.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Operational Transform (OT) - 1/3}
+    \begin{block}{Contexte}
+        \begin{itemize}
+            \item $\neq$ Git - changements asynchrones $\Rightarrow$ nécessité de \textit{commit}
+            \item Google Docs, Etherpad, LiveShare - changements synchrones, temps-réel
+            \item Deux stratégies - \textit{Event passing} ou \textit{Differential sync}
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{Principe}
+        \begin{itemize}
+            \item Algorithme de type \textit{Event passing}
+            \item Chaque client envoie les \textit{events} caractère par caractère au serveur
+            \item (Exemples : 'M' inséré à la position 4, suppression d'un caractère à partir de la position 10, ...)
+            \item Objectif : maintenir et synchroniser un état cohérent entre les utilisateurs
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Operational Transform (OT) - 2/3}
+    \begin{block}{Problème}
+        \begin{itemize}
+            \item Si tous les clients exécutent les mêmes \textit{events} dans un ordre différent
+            \item $\Rightarrow$ résultats potentiellement différents
+            \item Exemple : $a = ins(X, 1)$ et $b = ins(Y, 1) \Rightarrow a \times b \neq b \times a$
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{Solution : Transformation}
+        \begin{itemize}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{diamond_ot.png}
+            \item Fonction de transformation - calculer les nouvelles opérations complémentaires tel que :
+            \item $\Rightarrow$ $a \times b' = b \times a'$
+            \item Exemple - $a = ins(X, 1)$ et $b = ins(Y, 1) \Rightarrow a' = a$ et $b' = ins(Y, 2)$
+        \end{itemize}
+    \end{block}
+    
+    $\Rightarrow$ \textit{Crate} Rust "operational_transform" et structure OperationSeq
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Operational Transform (OT) - 3/3}
+    \begin{block}{Application dans SmartShare}
+        \begin{itemize}
+            \item Décomposition du document en trois ensembles : $A \times X \times Y$
+            \item $A$ : état stable, $X$ : changements envoyés, $Y$ : changements non envoyés
+            \item Gestion des conflits dans le Client et le Serveur
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{Serveur}
+        \begin{itemize}
+            \item Approbation des changements envoyés par le Client
+            \item Calcul des nouvelles opérations pour maj du doc Serveur + envoi aux Clients
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{Client}
+        \begin{itemize}
+            \item Enregistrement des changements locaux IDE
+            \item Soumission de ses changements au Serveur
+            \item Application des changements des autres Clients
+        \end{itemize}
+    \end{block}
+
+\begin{frame}
+    \frametitle{Gestion de projet}
+    \framesubtitle{Méthode agile}
+    \begin{block}{Organisation générale}
+        \begin{itemize}
+            \item Projet séparés en tâches : plugins IDE, serveur & client, gestion de conflits, protocoles de communication, ...
+            \item 1 sprint par jour avec état d'avancement chaque matin
+            \item Document de suivi décrivant les objectifs du jour
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Conclusion}
+    \framesubtitle{Bilan du projet}
+    \begin{block}{Fonctionnalités non développées}
+        \begin{itemize}
+            \item Utilisation en réseau non local
+            \item Partage de plusieurs fichiers en même temps
+            \item Support d'autres éditeurs de texte
+        \end{itemize}
+    \end{block}
+    \pause
+    \begin{block}{Fonctionnalités développées}
+        \begin{itemize}
+            \item Support de plusieurs IDE sur le même fichier
+            \item Synchronisation en temps réel
+            \item Gestion des conflits
+            \item Visualisation des curseurs
+        \end{itemize}
+    \end{block}
+    \begin{exampleblock}{Exemple}
+        Cette présentation a été codée à plusieurs en même temps grâce à Smart Share !
+    \end{exampleblock}
+\end{frame}
+
+
+\begin{frame}
+eh théo on baise la mère d'Ewan OUI OK
+
+bébou..... ??? Est-ce que tu m'aimes ??
+Est-ce que tu me gnoc ?
+
+est-ce que tu me gnoni ??
+
+RATIO
 \end{frame}
 
 \end{document}
+
+ 
