@@ -198,15 +198,22 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
     \end{block}
 
     \begin{block}{Solution : Transformation}
-        \begin{itemize}
-            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{diamond_ot.png}
-            \item Fonction de transformation - calculer les nouvelles opérations complémentaires tel que :
-            \item $\Rightarrow$ $a \times b' = b \times a'$
-            \item Exemple - $a = ins(X, 1)$ et $b = ins(Y, 1) \Rightarrow a' = a$ et $b' = ins(Y, 2)$
-        \end{itemize}
+        \begin{columns}
+            \begin{column}{0.3\textwidth}
+                \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{../images/diamond_ot.png}
+            \end{column}
+            
+            \begin{column}{0.7\textwidth}
+                \begin{itemize}
+                    \item Fonction de transformation - calculer les nouvelles opérations complémentaires tel que :
+                    \item $\Rightarrow$ $a \times b' = b \times a'$
+                    \item Exemple - $a = ins(X, 1)$ et $b = ins(Y, 1) \Rightarrow a' = a$ et $b' = ins(Y, 2)$
+                \end{itemize}
+            \end{column}
+        \end{columns}
     \end{block}
     
-    $\Rightarrow$ \textit{Crate} Rust "operational_transform" et structure OperationSeq
+    $\Rightarrow$ \textit{Crate} Rust "operational\_transform" et structure OperationSeq
 
 \end{frame}
 
