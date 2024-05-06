@@ -39,7 +39,7 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
     \frametitle{Objectifs}
     \begin{block}{Existant}
         \begin{itemize}
-            \item Google Docs: édition sur le navigateur, serveurs propriétaires de Google
+            \item Google Docs: édition sur le navigateur, serveurs de Google
             \item LiveShare: restreint à VSCode
             \item CodeTogether: payant, propriétaire
         \end{itemize}
@@ -49,8 +49,9 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
     \begin{block}{Notre proposition}
         Une solution open-source d'édition de fichiers simultanée fonctionnant sur plusieurs éditeurs.
         \begin{itemize}
-            \item Un protocole de communication
-            \item Un client exécutable universel à tous les éditeurs de textheight
+            \item Un protocole de communication client/serveur
+            \item Un client exécutable universel à tous les éditeurs de texte
+            \item Un protocole de communication client/éditeur de texte
             \item Une intégration simple dans les éditeurs/IDE
         \end{itemize}
     \end{block}
@@ -60,8 +61,8 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
     \frametitle{Objectifs}
     \begin{block}{Temps réel}
         \begin{itemize}
-            \item Latence faible
-            \item Edition simultanée des fichiers (nombreux enjeux abordés en détail dans les slides suivantes)
+            \item Edition simultanée à plusieurs sur un même fichier (nombreux enjeux abordés en détail dans les slides suivantes)
+            \item Latence faible, stabilité
         \end{itemize}
     \end{block}
     \begin{block}{Interopérabilité}
