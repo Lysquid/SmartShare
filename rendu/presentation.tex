@@ -238,11 +238,72 @@ xleftmargin=2em,frame=single,framexleftmargin=1.5em
 \end{frame}
 
 \begin{frame}
+    \frametitle{Plugins IDE}
+    \begin{block}{Fonctionnalités}
+        \begin{itemize}
+            \item Deux plugins IDE développés : l'un pour Neovim en Lua, l'autre pour VSCode en TypeScript
+            \item Un ensemble de fonctionnalités communes : édition de fichier simultanée en temps réel avec des curseurs
+            \item Les plugins IDE communiquent avec le client dans l'architecture globale
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Plugins IDE}
+    \framesubtitle{Neovim}
+    \begin{block}{Configuration}
+        \begin{itemize}
+            \item Comme pour tout plugin, on doit require('smartshare') dans la config Neovim
+            \item Se lance avec la commande :SmartShareConnect <ip\_serveur>
+            \item Cette commande aura pour effet de lancer automatiquement le client
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Plugins IDE}
+    \framesubtitle{Neovim}
+    \begin{block}{Utilisation}
+        \begin{itemize}
+            \item Après que le client se soit connecté au serveur, il récupère le fichier suivi ou il upload son propre fichier s'il est le premier
+            \item L'utilisateur peut ainsi modifier le fichier, voir les modifications des autres et voir leurs curseurs
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Plugins IDE}
+    \framesubtitle{Neovim}
+    \begin{block}{Fonctionnement}
+        \begin{itemize}
+            \item Utilisation de l'api Neovim et des builtins Vim (nvim\_buf\_attach, callback on\_bytes...)
+            \item Communication avec le client par stdin et stdout au format json
+            \item Manipulation du texte en octets (nvim\_buf\_get\_text, nvim\_buf\_set\_text...)
+            \item Utilisation d'extmarks pour les curseurs (on highlight les cellules du terminal)
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Chars vs octets}
+    \framesubtitle{Des encodages et des formats d'édition différents}
+    \begin{block}{Problème}
+        \begin{itemize}
+            \item Il n'y a pas qu'ASCII : différents encodages comme UTF-8 qui ont des caractères plus grands qu'un octet
+            \item Les IDE permettent aux plugins de manipuler le texte de différentes manières : caractères, octets, lignes/colonnes...
+            \item Notre bibliothèque OT utilise des caractères, et cela fait plus sens pour du texte : on convertit donc tout en caractères
+            \item Les offsets de fichier et les delete sont convertis vers des offsets de chars grâce à des byte slices
+            \item Le client est lancé avec l'option "--format <bytes/chars>" afin de lui notifier le format utilisé par le plugin
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
     \frametitle{Gestion de projet}
     \framesubtitle{Méthode agile}
     \begin{block}{Organisation générale}
         \begin{itemize}
-            \item Projet séparés en tâches : plugins IDE, serveur & client, gestion de conflits, protocoles de communication, ...
+            \item Projet séparés en tâches : plugins IDE, serveur \& client, gestion de conflits, protocoles de communication, ...
             \item 1 sprint par jour avec état d'avancement chaque matin
             \item Document de suivi décrivant les objectifs du jour
         \end{itemize}
