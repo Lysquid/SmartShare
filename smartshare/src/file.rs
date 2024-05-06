@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use anyhow::ensure;
+use anyhow::{anyhow, ensure};
 use operational_transform::{Operation, OperationSeq};
 use ropey::Rope;
 use tracing::Instrument;
@@ -49,6 +49,10 @@ impl File {
         self.content.len_chars()
     }
 
+    pub fn len_bytes(&self) -> usize {
+        self.content.len_bytes()
+    }
+
     pub fn byte_to_char_modif(&self, modif: &mut TextModification) {
         modif.delete = self
             .content
@@ -66,24 +70,36 @@ impl File {
         modif.offset = self.content.slice(..modif.offset as usize).len_bytes() as u64;
     }
 
-    pub fn byte_to_char_cursor(&self, cursor_info: &mut CursorsInfo) {
+    pub fn byte_to_char_cursor(&self, cursor_info: &mut CursorsInfo) -> anyhow::Result<()> {
         for cursor in cursor_info.cursors.iter_mut() {
             cursor.cursor = self
                 .content
-                .byte_slice(..cursor.cursor as usize)
+                .get_byte_slice(..cursor.cursor as usize)
+                .ok_or_else(|| anyhow!("invalid cursor"))?
                 .len_chars() as u64;
             cursor.anchor = self
                 .content
-                .byte_slice(..cursor.anchor as usize)
+                .get_byte_slice(..cursor.anchor as usize)
+                .ok_or_else(|| anyhow!("invalid cursor"))?
                 .len_chars() as u64;
         }
+        Ok(())
     }
 
-    pub fn char_to_byte_cursor(&self, cursor_info: &mut CursorsInfo) {
+    pub fn char_to_byte_cursor(&self, cursor_info: &mut CursorsInfo) -> anyhow::Result<()> {
         for cursor in cursor_info.cursors.iter_mut() {
-            cursor.cursor = self.content.slice(..cursor.cursor as usize).len_bytes() as u64;
-            cursor.anchor = self.content.slice(..cursor.anchor as usize).len_bytes() as u64;
+            cursor.cursor = self
+                .content
+                .get_slice(..cursor.cursor as usize)
+                .ok_or_else(|| anyhow!("invalid cursor"))?
+                .len_bytes() as u64;
+            cursor.anchor = self
+                .content
+                .get_slice(..cursor.anchor as usize)
+                .ok_or_else(|| anyhow!("invalid cursor"))?
+                .len_bytes() as u64;
         }
+        Ok(())
     }
 }
 
