@@ -23,12 +23,12 @@ pub struct Client {
     server: Server,
     ide: Ide,
     client_id: usize,
-    format: Option<Format>,
+    format: Format,
     file: Option<File>,
 }
 
 impl Client {
-    pub fn new(server: Server, ide: Ide, client_id: usize) -> Self {
+    pub fn new(server: Server, ide: Ide, client_id: usize, format: Format) -> Self {
         Self {
             server_state: OperationSeq::default(),
             server_sent_delta: OperationSeq::default(),
@@ -40,7 +40,7 @@ impl Client {
             server,
             ide,
             client_id,
-            format: None,
+            format,
             file: None,
         }
     }
@@ -104,7 +104,7 @@ impl Client {
 
         let mut ide_modifs = to_ide_changes(&self.ide_unsent_delta);
 
-        if matches!(self.format.as_ref().unwrap(), Format::Bytes) {
+        if matches!(self.format, Format::Bytes) {
             let mut file = file.clone();
             for ide_modif in ide_modifs.iter_mut() {
                 let delta = modif_to_operation_seq(ide_modif, &(file.len_chars() as u64)).unwrap();
@@ -167,7 +167,6 @@ impl Client {
     }
 
     async fn on_ide_change(&mut self, mut changes: Vec<TextModification>) -> Result<()> {
-        let format = self.format.as_ref().ok_or_else(|| anyhow!("Format not set"))?;
         let file = self.file.as_mut().ok_or_else(|| anyhow!("File not set"))?;
 
         let ide_seq = {
@@ -175,7 +174,7 @@ impl Client {
             seq.retain(file.len_chars() as u64);
 
             for change in &mut changes {
-                if let Format::Bytes = format {
+                if let Format::Bytes = self.format {
                     file.byte_to_char(&mut *change);
                 }
                 let delta = modif_to_operation_seq(change, &(file.len_chars() as u64))?;
@@ -211,11 +210,6 @@ impl Client {
             self.submit_server_change().await;
         }
 
-        Ok(())
-    }
-
-    async fn on_ide_format(&mut self, format: Format) -> Result<()> {
-        self.format = Some(format);
         Ok(())
     }
 
@@ -257,7 +251,6 @@ impl Client {
     pub async fn on_message_ide(&mut self, message_ide: MessageIde) {
         let res = match message_ide {
             MessageIde::Update { changes } => self.on_ide_change(changes).await,
-            MessageIde::Declare(format) => self.on_ide_format(format).await,
             MessageIde::File { file } => self.on_ide_file(file).await,
             MessageIde::Ack => self.on_ide_ack().await,
             _ => {

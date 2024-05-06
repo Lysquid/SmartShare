@@ -1,5 +1,6 @@
 use std::usize;
 
+use clap::ValueEnum;
 use operational_transform::{Operation, OperationSeq};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,6 @@ pub enum MessageServer {
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum MessageIde {
     Update { changes: Vec<TextModification> },
-    Declare(Format),
     Error { error: String },
     RequestFile,
     File { file: String },
@@ -82,11 +82,12 @@ enum State {
     Del,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "offset_format", rename_all = "snake_case")]
+#[derive(ValueEnum, Clone, Default, Debug, Serialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub enum Format {
-    Bytes,
+    #[default]
     Chars,
+    Bytes,
 }
 
 pub fn to_ide_changes(delta: &OperationSeq) -> Vec<TextModification> {

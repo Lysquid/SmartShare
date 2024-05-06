@@ -5,8 +5,9 @@ pub mod server;
 use core::panic;
 use std::env;
 
+use clap::Parser;
 use futures::SinkExt;
-use smartshare::protocol::msg::{MessageIde, MessageServer};
+use smartshare::protocol::msg::{MessageIde, MessageServer, Format};
 use smartshare::protocol::{message_sink, message_stream};
 use tokio::net::TcpStream;
 use tokio::select;
@@ -19,8 +20,18 @@ use self::client::Client;
 use self::ide::Ide;
 use self::server::Server;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Name of the person to greet
+    #[arg(short, long, default_value_t, value_enum)]
+    format: Format,
+}
+
 #[tokio::main]
 async fn main() {
+    let args = Args::parse();
+
     let subscriber = tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_ansi(false)
@@ -51,7 +62,7 @@ async fn main() {
     let (server_sender, server_receiver) = mpsc::channel(8);
     let server = Server::new(server_sender);
 
-    let mut client = Client::new(server, ide, 0);
+    let mut client = Client::new(server, ide, 0, args.format);
 
     tokio::spawn(async move {
         let mut stdout_sink = message_sink::<MessageIde, _>(tokio::io::stdout());
@@ -119,7 +130,7 @@ mod test {
     async fn simple_connection() {
         let (server_sender, _server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         client
             .on_message_server(MessageServer::File {
@@ -140,7 +151,7 @@ mod test {
     async fn first_connection() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         client.on_message_server(MessageServer::RequestFile).await;
 
@@ -165,7 +176,7 @@ mod test {
     async fn ide_change_chars() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         // simple connexion with format decl
 
@@ -182,10 +193,6 @@ mod test {
                 file: "çalùt monde".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Chars))
-            .await;
 
         // ide change
 
@@ -233,7 +240,7 @@ mod test {
     async fn ide_change_bytes() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Bytes);
 
         // simple connexion with format decl
 
@@ -250,10 +257,6 @@ mod test {
                 file: "çalùt monde".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Bytes))
-            .await;
 
         // ide change
 
@@ -301,7 +304,7 @@ mod test {
     async fn server_change_chars() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         // simple connexion with format decl
 
@@ -318,10 +321,6 @@ mod test {
                 file: "çalùt monde".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Chars))
-            .await;
 
         // server change
         let mut server_modif = OperationSeq::default();
@@ -366,7 +365,7 @@ mod test {
     async fn server_change_bytes() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Bytes);
 
         // simple connexion with format decl
 
@@ -383,10 +382,6 @@ mod test {
                 file: "çalùt monde".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Bytes))
-            .await;
 
         // server change
         let mut server_modif = OperationSeq::default();
@@ -431,7 +426,7 @@ mod test {
     async fn ide_conflict() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         // simple connexion with format decl
 
@@ -448,10 +443,6 @@ mod test {
                 file: "Hello world".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Chars))
-            .await;
 
         // server change
 
@@ -526,7 +517,7 @@ mod test {
     async fn server_conflict() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         // simple connexion with format decl
 
@@ -543,10 +534,6 @@ mod test {
                 file: "Hello world".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Chars))
-            .await;
 
         // ide change
 
@@ -610,7 +597,7 @@ mod test {
     async fn multilple_conflicts() {
         let (server_sender, mut server_receiver) = tokio::sync::mpsc::channel(8);
         let (ide_sender, mut ide_receiver) = tokio::sync::mpsc::channel(8);
-        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0);
+        let mut client = Client::new(Server::new(server_sender), Ide::new(ide_sender), 0, Format::Chars);
 
         // simple connexion with format decl
 
@@ -627,10 +614,6 @@ mod test {
                 file: "Hello world".into()
             })
         );
-
-        client
-            .on_message_ide(MessageIde::Declare(Format::Chars))
-            .await;
 
         // ide change
 
