@@ -3,7 +3,7 @@ pub mod ide;
 pub mod server;
 
 use core::panic;
-use std::env;
+use std::net::SocketAddrV4;
 
 use clap::Parser;
 use futures::SinkExt;
@@ -23,9 +23,13 @@ use self::server::Server;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Name of the person to greet
+    /// format of the text modifications
     #[arg(short, long, default_value_t, value_enum)]
     format: Format,
+
+
+    /// ipv4 adress of the server
+    ip: SocketAddrV4,
 }
 
 #[tokio::main]
@@ -38,22 +42,16 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
-    let mut binding: TcpStream;
-    if let Some(x) = env::args().nth(1) {
-        match TcpStream::connect(x).await {
-            Ok(stream) => {
-                binding = stream;
-            }
-            Err(err) => {
-                error!("{err}");
-                panic!("{err}");
-            }
-        };
-        info!("Successfully connected to server");
-    } else {
-        let prog = env::args().next().unwrap();
-        panic!("Usage : {prog} ip:port");
-    }
+    let binding: TcpStream = match TcpStream::connect(args.ip).await {
+        Ok(stream) => {
+            stream
+        }
+        Err(err) => {
+            error!("{err}");
+            panic!("{err}");
+        }
+    };
+
     let (rx, tx) = tokio::io::split(binding);
 
     let (ide_sender, ide_receiver) = mpsc::channel(8);
