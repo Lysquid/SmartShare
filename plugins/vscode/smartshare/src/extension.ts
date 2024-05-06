@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { logClient, logServer } from './utils';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
-import { Ack, Declare, File, Message, RequestFile, TextModification, Update, isMessage, matchMessage } from './message';
+import { Ack, File, Message, RequestFile, TextModification, Update, isMessage, matchMessage } from './message';
 
 let waitingAcks = 0;
 let toIgnore: string[] = [];
@@ -76,9 +76,6 @@ function handleMessage(data: Message) {
             } else {
                 logClient.debug("Ignore update before acknowledge", update)
             }
-        },
-        (declare: Declare) => {
-            logClient.error("Recieved invalid action declare", declare)
         },
         (error: Error) => {
             logClient.error("From client: ", error)
