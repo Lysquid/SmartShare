@@ -169,7 +169,7 @@ function startClient(addr: string) {
 
     let client = spawn(
         EXE_PATH + "client",
-        [addr + ":" + DEFAULT_PORT],
+        [addr + ":" + DEFAULT_PORT, "--format", "chars"],
         { env: { RUST_LOG: 'trace' } }
     );
     clientProc = client;
@@ -181,8 +181,6 @@ function startClient(addr: string) {
     client.on('spawn', () => {
         logClient.info(`Launched client subprocess at pid ${client.pid}`);
         client.stdout.setEncoding("utf8");
-        const message: Declare = { action: "declare", offset_format: "chars" };
-        procWrite(client, message);
 
     });
 

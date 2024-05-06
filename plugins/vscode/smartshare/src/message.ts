@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { logClient } from './utils';
 
-export type Message = Update | Declare | Error | RequestFile | File | Ack;
+export type Message = Update | Error | RequestFile | File | Ack;
 
 export interface Update {
     action: "update"
@@ -46,11 +46,6 @@ export class TextModification {
     }
 }
 
-export interface Declare {
-    action: "declare"
-    offset_format: "bytes" | "chars"
-}
-
 export interface Error {
     action: "error"
     error: string
@@ -70,13 +65,12 @@ export interface Ack {
 }
 
 export function isMessage(object: any): object is Message {
-    return ["update", "declare", "error", "request_file", "file", "ack"].includes(object.action);
+    return ["update", "error", "request_file", "file", "ack"].includes(object.action);
 }
 
 export function matchMessage(message: Message): any {
     return (
         onUpdate: (x: Update) => any,
-        onDeclare: (x: Declare) => any,
         onError: (x: Error) => any,
         onRequestFile: (x: RequestFile) => any,
         onFile: (x: File) => any,
@@ -85,8 +79,6 @@ export function matchMessage(message: Message): any {
         switch (message.action) {
             case "update":
                 return onUpdate(message);
-            case "declare":
-                return onDeclare(message);
             case "error":
                 return onError(message);
             case "request_file":
