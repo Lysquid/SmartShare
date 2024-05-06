@@ -29,7 +29,7 @@ function connect(addr)
         vim.fn.jobstop(handle)
     end
 
-    handle = vim.fn.jobstart("./client " .. addr .. ":4903", {
+    handle = vim.fn.jobstart("./client --format bytes " .. addr .. ":4903", {
         on_stdout = function(_job_id, data, event)
             for _, json_object in ipairs(data) do
                 if json_object ~= nil and json_object ~= '' then
@@ -73,11 +73,6 @@ function connect(addr)
         on_stderr = function(_job_id, data, event)
             print(vim.inspect(data))
         end
-    })
-
-    send_message({
-        action = "declare",
-        offset_format = "bytes",
     })
 end
 
