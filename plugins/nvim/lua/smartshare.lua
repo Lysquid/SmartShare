@@ -188,11 +188,22 @@ function set_cursor(id, offset, anchor)
         hl = vim.api.nvim_set_hl(0, "SmartShareCursor" .. id, { bg = rgb })
     end
 
+    if end_col == 0 then
+        end_col = end_col + 1
+    else
+        end_col = end_col - 1
+        if end_col <= start_col then
+            local tmp = start_col
+            start_col = end_col
+            end_col = tmp
+        end
+    end
+
     local extmark_opts = {
         id = id + 1,
         priority = 10,
         end_row = end_row,
-        end_col = end_col + 1,
+        end_col = end_col,
         hl_eol = true,
         hl_group = "SmartShareCursor" ..
             id,
