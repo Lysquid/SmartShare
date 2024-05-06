@@ -4,6 +4,7 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { Ack, Declare, File, Message, RequestFile, TextModification, Update, isMessage, matchMessage } from './message';
 
 let waitingAcks = 0;
+let toIgnore: string[] = [];
 let clientProc: ChildProcessWithoutNullStreams | undefined;
 let serverProc: ChildProcessWithoutNullStreams | undefined;
 let disposable: vscode.Disposable | undefined;
@@ -21,8 +22,13 @@ function procWrite(proc: ChildProcessWithoutNullStreams, message: Message): void
 }
 
 async function applyChange(change: TextModification): Promise<boolean> {
-    ignoreNextEvent = true;
-    return await change.write();
+    toIgnore.push(JSON.stringify(change));
+    let res = await change.write();
+    if(!res) {
+        const index = toIgnore.indexOf(JSON.stringify(toIgnore));
+        toIgnore.splice(index, 1);
+    }
+    return res;
 }
 
 function clientStdoutHandler(): (chunk: any) => void {
@@ -51,15 +57,22 @@ function handleMessage(data: Message) {
     matchMessage(data)(
         (update: Update) => {
             if (!waitingAcks) {
-                for (let change of update.changes) {
-                    change = new TextModification(change.offset, change.delete, change.text);
-                    applyChange(change).then((success) => {
-                        console.log("success ?" + success);
-                        if (success && clientProc) {
-                            procWrite(clientProc, { action: "ack" })
-                        }
-                    }).catch(err => console.log("err" + err))
-                }
+                (async () => {
+                    for (let change of update.changes) {
+                        change = new TextModification(change.offset, change.delete, change.text);
+                        logClient.debug("trying to apply ", change);
+                        if(!await applyChange(change)) {
+                            return false;
+                        };
+                    }
+                    return true;
+                })().then((success)=>{
+                    if (success && clientProc) {
+                        procWrite(clientProc, {action: "ack"});
+                    }
+                })
+
+
             } else {
                 logClient.debug("Ignore update before acknowledge", update)
             }
@@ -110,10 +123,11 @@ function changeDocumentHandler(event: vscode.TextDocumentChangeEvent): any {
     if (init || !clientProc) {
         return;
     }
-    if(ignoreNextEvent) {
-        ignoreNextEvent = false
-        return;
-    }
+    // if (ignoreNextEvent) {
+    //     logClient.debug("ignored changes: " + JSON.stringify(event.contentChanges))
+    //     ignoreNextEvent = false
+    //     return;
+    // }
 
     let changes = event.contentChanges.map(change => {
         return new TextModification(
@@ -122,9 +136,25 @@ function changeDocumentHandler(event: vscode.TextDocumentChangeEvent): any {
             change.text
         )
     });
+
+    let newChanges = [];
+    //logClient.debug(toIgnore);
+    //logClient.debug(JSON.stringify(changes));
+    for(const change of changes) {
+        let index = toIgnore.indexOf(JSON.stringify(change));
+        if(index != -1) {
+            toIgnore.splice(index,1);
+        } else {
+            newChanges.push(change);
+        }
+    }
+    toIgnore = [];
+    if(newChanges.length == 0) {
+        return;
+    }
     let message: Update = {
         action: "update",
-        changes: changes
+        changes: newChanges
     };
     procWrite(clientProc, message);
     waitingAcks++;
@@ -155,9 +185,9 @@ function startClient(addr: string) {
         procWrite(client, message);
 
     });
-    
+
     client.stdout.on("data", clientStdoutHandler());
-    
+
     client.stderr.on("data", (data) => {
         logClient.subprocess(data + "");
         console.log(data + "");
@@ -234,7 +264,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
         const addr = await vscode.window.showInputBox(
-            { prompt: "IP Address", value: DEFAULT_ADDR, placeHolder: DEFAULT_ADDR}
+            { prompt: "IP Address", value: DEFAULT_ADDR, placeHolder: DEFAULT_ADDR }
         );
         if (!addr) {
             return;
