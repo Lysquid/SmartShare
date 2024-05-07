@@ -179,13 +179,27 @@ vim.api.nvim_create_user_command("SmartShareConnect", function(cmd)
     end
 end, {})
 
+function reverse_rgb(r, g, b)
+    -- Calculate the complementary color by subtracting each component from 255
+    local reversed_r = 255 - r
+    local reversed_g = 255 - g
+    local reversed_b = 255 - b
+
+    return reversed_r, reversed_g, reversed_b
+end
+
 function set_cursor(id, offset, anchor)
     local start_row, start_col = M.get_line_column_from_byte_offset(anchor)
     local end_row, end_col = M.get_line_column_from_byte_offset(offset)
     local hl = vim.api.nvim_get_hl(0, { name = "SmartShareCursor" .. id })
     if next(hl) == nil then
-        local rgb = string.format("#%02X%02X%02X", math.random(0, 255), math.random(0, 255), math.random(0, 255))
-        hl = vim.api.nvim_set_hl(0, "SmartShareCursor" .. id, { bg = rgb })
+        local r = math.random(0, 255)
+        local g = math.random(0, 255)
+        local b = math.random(0, 255)
+        local rgb = string.format("#%02X%02X%02X", r, g, b)
+        local reversed_r, reversed_g, reversed_b = reverse_rgb(r, g, b)
+        local reversed_rgb = string.format("#%02X%02X%02X", reversed_r, reversed_g, reversed_b)
+        hl = vim.api.nvim_set_hl(0, "SmartShareCursor" .. id, { bg = rgb, fg = reversed_rgb })
     end
 
     if end_col == 0 then
@@ -207,7 +221,7 @@ function set_cursor(id, offset, anchor)
         hl_eol = true,
         hl_group = "SmartShareCursor" ..
             id,
-        strict = false
+        strict = false,
     }
     vim.api.nvim_buf_set_extmark(buf, ns, start_row, start_col, extmark_opts)
 end
@@ -223,34 +237,33 @@ end
 vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
     pattern = { "*" },
     callback = function()
-        vim.schedule(function()
-            if initialized then
-                local cursor = vim.api.nvim_win_get_cursor(0)
-                local anchor_offset = get_selection_start()
-                local cursor_offset = math.max(0, line_col_to_byte_offset(cursor[1] - 1, cursor[2]))
-                if anchor_offset < 0 then
-                    anchor_offset = cursor_offset
-                end
+        if initialized then
+            local cursor = vim.api.nvim_win_get_cursor(0)
+            local anchor_offset = get_selection_start()
+            local cursor_offset = math.max(0, line_col_to_byte_offset(cursor[1] - 1, cursor[2]))
+            if anchor_offset < 0 then
+                anchor_offset = cursor_offset
+            end
 
-                if cursor_offset < anchor_offset then
-                    local temp = cursor_offset
-                    cursor_offset = anchor_offset
-                    anchor_offset = temp
-                end
+            if cursor_offset < anchor_offset then
+                local temp = cursor_offset
+                cursor_offset = anchor_offset
+                anchor_offset = temp
+            end
 
-                local cursor_message = {
-                    action = "cursor",
-                    cursors = {
-                        {
-                            anchor = anchor_offset,
-                            cursor = cursor_offset,
-                        }
+            local cursor_message = {
+                action = "cursor",
+                cursors = {
+                    {
+                        anchor = anchor_offset,
+                        cursor = cursor_offset,
                     }
                 }
-
+            }
+            vim.defer_fn(function()
                 send_message(cursor_message)
-            end
-        end)
+            end, 10)
+        end
     end
 })
 
