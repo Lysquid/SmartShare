@@ -218,7 +218,6 @@ function set_cursor(id, offset, anchor)
         priority = 10,
         end_row = end_row,
         end_col = end_col,
-        hl_eol = true,
         hl_group = "SmartShareCursor" ..
             id,
         strict = false,
