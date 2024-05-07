@@ -242,7 +242,8 @@ impl Client {
         }
         for cursor in cursor_info.cursors.iter() {
             if cursor.cursor > file.len_chars() as u64 || cursor.anchor > file.len_chars() as u64 {
-                return Err(anyhow!("invalid cursor"));
+                //return Err(anyhow!("invalid cursor"));
+                return Ok(());
             }
         }
         let _ = self.server.send(MessageServer::Cursor(cursor_info)).await;
