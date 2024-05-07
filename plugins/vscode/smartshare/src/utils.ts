@@ -31,7 +31,6 @@ class RustLog {
     }
 
     error(...msg: [unknown, ...unknown[]]): void {
-        debugger;
         this.write("ERROR", ...msg);
         this.output.show(true);
     }
