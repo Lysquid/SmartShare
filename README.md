@@ -1,50 +1,47 @@
-# Projet SmartShare
+# SmartShare
 
-![Insalogo](./images/logo-insa_0.png)
+Collaborate in real time on the same file across different editors. The goal is to make a prototype of an editor-independent clone of [LiveShare]() from VSCode. VSCode and Neovim plugins are available. It was developed by a group of 6 people over 2 weeks.
 
-Project [SMART(PLD)](riccardotommasini.com/teaching/smart) is provided by [INSA Lyon](https://www.insa-lyon.fr/).
+SmartShare can handle all text editing: insertion, deletion, copy/paste, etc. It displays the cursors of the other connected clients as they move. There is no upper limit to the number of clients who can connect to a session (we have tested up to 6). Sadly, some mysterious bugs desynchronizing the files have been noticed occasionally.
 
-Students: BENOIT Romain, CHONÉ Théo, CHORYNSKI Ewan, DELHON Florian, GAIGÉ Théo, HASAN TAWFIQ Amar, PEIGUE Alix
+[![SmartShare demo](presentation/collab.png)](https://www.youtube.com/watch?v=PwJDy0TuLDU)
 
-## Abstract
+## How it works
 
-Les outils de collaboration sont aujourd'hui omniprésents surtout dans le monde de la bureautique. Des outils comme Google Docs ou Office360 sont de plus en plus utilisés pour permettre un meilleur travail d'équipe en temps réel. Dans le milieu de la programmation, des outils similaires se sont développés afin de permettre de meilleures sessions de "pair programming". On peut par exemple citer Live Share sur VSCode.
+### Operational transform
 
-Cependant, ces outils sont actuellement spécifiques à un IDE, ce qui rend les utilisateurs dépendants et empêche la collaboration entre plusieurs environnements. De plus, les solutions existantes comme Live Share ne sont pas open source, et pourrait donc devenir payantes au gré de la volonté des entreprises qui les possèdent. C'est pourquoi notre projet vise à proposer un outil open source de collaboration pour l'édition de fichiers textes qui permettrait à chacun d'utiliser l'outil avec lequel il est le plus à l'aise.
+The logic for concurrent editing is based on [operational transform](https://en.wikipedia.org/wiki/Operational_transformation), a technology used in collaborative software to maintain the consistency of the content.
 
-## Description
+The core principle is that if two people make changes A and B at the same time, then we can compute B' and A' such that, if applied to the two versions respectively, the end result is the same. Therefore, each client just has to send the changes it made, and not the whole modified file.
 
-### Interopérabilité
+![operational transform diamond](presentation/diamond_ot.png)
 
-Ce projet s'inspire d'une grande avancée dans le domaine de l'autocomplétion dans les IDE : le *Language Server Protocol* (LSP). Il s'agit d'un protocole permettant à un éditeur de texte de communiquer avec un programme externe nommé *Language Server* qui peut donner des propositions d'autocomplétion. Un bon exemple de *Language Server* est *rust-analyzer* qui permet l'autocomplétion en Rust. Ce seul programme maintenu par la fondation Rust peut être utilisé sur tous les éditeurs supportant le LSP. Ainsi, chaque éditeur n'a pas besoin d'implémenter l'analyse complexe du code que le compilateur fait déjà.
+The [Etherpad and EasySync Technical Manual](https://github.com/ether/etherpad-lite/blob/develop/doc/public/easysync/easysync-full-description.pdf) was a very valuable resource to learn how to implement operational transform in practice.
 
-Le LSP permet d'avoir une seule implémentation pour tous les éditeurs. Nous nous inspirons de ce constat pour proposer une idée similaire avec le partage de code : une seule implémentation du protocole de synchronisation pour tous les IDE et un protocole qui permet à l'éditeur de communiquer avec cette implémentation. Il faudra donc faire des plugins pour les différents IDE afin d'interagir avec ce programme central.
+### Architecture
 
-### Synchronisation
+![architecture diagram](presentation/archi.png)
 
-Un des gros enjeux du projet sera donc de gérer tous les cas possibles de synchronisation des fichiers. Que se passe-t-il si deux personnes écrivent en même temps sur la même ligne ? Comment savoir où appliquer une modification si un autre utilisateur a réordonné les lignes en même temps ? Comment rattraper l'évolution d'un fichier en cas de déconnexion momentanée ? Comment garantir que les fichiers ne divergent pas, ou a minima le vérifier sans les renvoyer dans leur totalité ?
+The software is composed of 3 parts:
 
-### Pair à pair
+- a central server app, keeping track of the "true" version
+- a client app, independent of the editor
+- an editor plugin, communicating with the client
 
-Le protocole de synchronisation devra fonctionner de façon pair-à-pair entre l'hôte de la session et les différents utilisateurs. A priori, l'hôte agirait tout de même comme autorité de la session, détenant le véritable état des documents édités. Un serveur de rendez-vous sera potentiellement nécessaire afin de passer à travers d'éventuels NAT.
+The server and client are written in Rust, for speed and reliability. The language of the plugin depends on the editor (JS for VSCode, Lua for Neovim).
 
-### Technologies
+The goal of this complex architecture over a simpler client/server model is to make the editor plugin as simple as possible, by leaving the logic to the client. This way, new plugins for other editors can be easily developed, as they only have to send and write characters.
 
-Le programme de synchronisation sera écrit en Rust pour plusieurs raisons :
-- Par son système de typage, le langage permet d'éviter beaucoup de comportements indéfinis (nous obligeant à traiter tous les cas de désynchronisation).
-- C'est un langage bas niveau, qui se prête bien aux opérations de traitement de flux de texte et de communication réseau.
-- Les membres de notre groupe sont unanimement motivés pour utiliser ce langage.
+### Protocol
 
-Les extensions pour IDE seront dans les langages adéquats :
-- JavaScript pour VSCode
-- Lua pour Neovim
+The original operational transform protocol was made for a simple client/server architecture, so it was adapted into two protocols to handle conflicts at any point.
 
-## Project Goal
+When the first client joins the session, it uploads the editor active file to the server. The others client receive the file from the server upon connection to the session. A change can then be sent from one editor to the others. The protocol uses acknowledge packets to ensure the changes were accepted without conflict.
 
-- Proposer un protocole de synchronisation de projet
-- Proposer un protocole de communication entre un IDE et le programme de synchronisation.
-- Implémenter un programme qui tourne en arrière-plan pour implémenter le protocole de synchronisation
-- Implémenter des plugins pour différents IDE afin de communiquer avec notre programme
-  - Neovim
-  - VSCode
-  - Autre IDE à discuter
+![conflict example](presentation/diagrams/1.png)
+![conflict example](presentation/diagrams/2.png)
+
+Two types of conflicts can happen: between the server and the client, or the client and the editor plugin.
+
+![conflict example](presentation/diagrams/3.png)
+![conflict example](presentation/diagrams/4.png)
